@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      title: 'Tracker Hutang',
+      title: 'Tracker Hutang premium',
 
       theme: ThemeData(
         useMaterial3: true,
@@ -67,7 +67,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tracker Hutang')),
+      appBar: AppBar(title: const Text('Tracker Hutang Premium')),
 
       body: SingleChildScrollView(
         child: Padding(
