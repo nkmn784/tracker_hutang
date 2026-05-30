@@ -51,7 +51,6 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  List<HutangModel> dataHutang = [];
   Future<void> simpanHutang(HutangModel data) async {
     DocumentReference docRef = await FirebaseFirestore.instance
         .collection('hutang')
@@ -65,38 +64,6 @@ class _DashboardPageState extends State<DashboardPage> {
     print("ID data: ${docRef.id}");
   }
 
-  int get totalPiutang {
-    int total = 0;
-
-    for (var item in dataHutang) {
-      if (item.jenis == 'Piutang') {
-        total += item.jumlah;
-      }
-    }
-
-    return total;
-  }
-
-  int get totalHutang {
-    int total = 0;
-
-    for (var item in dataHutang) {
-      if (item.jenis == 'Hutang') {
-        total += item.jumlah;
-      }
-    }
-
-    return total;
-  }
-
-  void tambahData(HutangModel data) {
-    setState(() {
-      dataHutang.add(data);
-    });
-
-    simpanHutang(data);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,70 +75,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    const Text(
-                      'Total Piutang',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Text(
-                      'Rp $totalPiutang',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-
-                decoration: BoxDecoration(
-                  color: Colors.redAccent,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-
-                  children: [
-                    const Text(
-                      'Total Hutang',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    Text(
-                      'Rp $totalHutang',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
               const SizedBox(height: 20),
 
               SizedBox(
@@ -188,7 +91,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     );
 
                     if (hasil != null) {
-                      tambahData(hasil);
+                      simpanHutang(hasil);
                     }
                   },
 
@@ -197,22 +100,179 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
 
               const SizedBox(height: 20),
+              StreamBuilder(
+                stream: FirebaseFirestore.instance
+                    .collection('hutang')
+                    .snapshots(),
 
-              ListView.builder(
-                shrinkWrap: true,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const CircularProgressIndicator();
+                  }
 
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: dataHutang.length,
+                  final docs = snapshot.data!.docs;
 
-                itemBuilder: (context, index) {
-                  final item = dataHutang[index];
+                  int totalPiutang = 0;
+                  int totalHutang = 0;
 
-                  return Card(
-                    child: ListTile(
-                      title: Text(item.nama),
+                  for (var doc in docs) {
+                    final data = doc.data();
 
-                      subtitle: Text('${item.jenis} - Rp ${item.jumlah}'),
-                    ),
+                    if (data['jenis'] == 'Piutang') {
+                      totalPiutang += (data['jumlah'] as num).toInt();
+                    } else {
+                      totalHutang += (data['jumlah'] as num).toInt();
+                    }
+                  }
+
+                  return Column(
+                    children: [
+                      Text(
+                        'Total Piutang: Rp $totalPiutang',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
+                      ),
+
+                      const SizedBox(height: 10),
+
+                      Text(
+                        'Total Hutang: Rp $totalHutang',
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red,
+                        ),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: docs.length,
+
+                        itemBuilder: (context, index) {
+                          final data = docs[index].data();
+                          final docId = docs[index].id;
+                          return Card(
+                            child: ListTile(
+                              title: Text(data['nama']),
+
+                              subtitle: Text(
+                                '${data['jenis']} - Rp ${data['jumlah']}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.blue,
+                                    ),
+
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+
+                                        builder: (context) {
+                                          TextEditingController namaController =
+                                              TextEditingController(
+                                                text: data['nama'],
+                                              );
+
+                                          TextEditingController
+                                          jumlahController =
+                                              TextEditingController(
+                                                text: data['jumlah'].toString(),
+                                              );
+
+                                          return AlertDialog(
+                                            title: const Text('Edit Data'),
+
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+
+                                              children: [
+                                                TextField(
+                                                  controller: namaController,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText: 'Nama',
+                                                      ),
+                                                ),
+
+                                                TextField(
+                                                  controller: jumlahController,
+                                                  keyboardType:
+                                                      TextInputType.number,
+
+                                                  decoration:
+                                                      const InputDecoration(
+                                                        labelText: 'Jumlah',
+                                                      ),
+                                                ),
+                                              ],
+                                            ),
+
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () {
+                                                  Navigator.pop(context);
+                                                },
+
+                                                child: const Text('Batal'),
+                                              ),
+
+                                              ElevatedButton(
+                                                onPressed: () async {
+                                                  await FirebaseFirestore
+                                                      .instance
+                                                      .collection('hutang')
+                                                      .doc(docId)
+                                                      .update({
+                                                        'nama':
+                                                            namaController.text,
+                                                        'jumlah': int.parse(
+                                                          jumlahController.text,
+                                                        ),
+                                                      });
+
+                                                  Navigator.pop(context);
+                                                },
+
+                                                child: const Text('Simpan'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
+
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+
+                                    onPressed: () async {
+                                      await FirebaseFirestore.instance
+                                          .collection('hutang')
+                                          .doc(docId)
+                                          .delete();
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   );
                 },
               ),
