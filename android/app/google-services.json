@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "649850106152",
+    "project_id": "tracker-hutang",
+    "storage_bucket": "tracker-hutang.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:649850106152:android:8eca6e44a3fe5fd6de201d",
+        "android_client_info": {
+          "package_name": "com.example.tracker_hutang"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAxTHMKw2XBs9s8DzvY0ehRdpK7KpO8Q6g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
