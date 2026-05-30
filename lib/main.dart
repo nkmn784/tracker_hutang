@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
 
-      title: 'Tracker Hutang',
+      title: 'Tracker Hutang premium',
 
       theme: ThemeData(
         useMaterial3: true,
@@ -100,7 +100,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Tracker Hutang')),
+      appBar: AppBar(title: const Text('Tracker Hutang Premium')),
 
       body: SingleChildScrollView(
         child: Padding(
@@ -113,7 +113,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 padding: const EdgeInsets.all(20),
 
                 decoration: BoxDecoration(
-                  color: Colors.green,
+                  color: Colors.purple,
                   borderRadius: BorderRadius.circular(20),
                 ),
 
@@ -145,7 +145,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 padding: const EdgeInsets.all(20),
 
                 decoration: BoxDecoration(
-                  color: Colors.redAccent,
+                  color: Colors.orange,
                   borderRadius: BorderRadius.circular(20),
                 ),
 
@@ -153,6 +153,15 @@ class _DashboardPageState extends State<DashboardPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
 
                   children: [
+                    const SizedBox(height: 10),
+
+                    const Text(
+                      'Versi Premium',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const Text(
                       'Total Hutang',
                       style: TextStyle(color: Colors.white70, fontSize: 16),
