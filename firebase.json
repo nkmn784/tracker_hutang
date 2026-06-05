@@ -1,1 +1,36 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"tracker-hutang","appId":"1:649850106152:android:8eca6e44a3fe5fd6de201d","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"tracker-hutang","configurations":{"android":"1:649850106152:android:8eca6e44a3fe5fd6de201d","web":"1:649850106152:web:2fcb7683a0861768de201d"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "tracker-hutang",
+          "appId": "1:649850106152:android:8eca6e44a3fe5fd6de201d",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tracker-hutang",
+          "configurations": {
+            "android": "1:649850106152:android:8eca6e44a3fe5fd6de201d",
+            "web": "1:649850106152:web:2fcb7683a0861768de201d"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}
