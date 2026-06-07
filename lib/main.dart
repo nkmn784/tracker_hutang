@@ -8,6 +8,7 @@ import 'dart:math';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  //menghubungkan aplikasi flutter dengan firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const MyApp());
 }
@@ -43,6 +44,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage>
     with TickerProviderStateMixin {
+  String searchQuery = '';
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
 
@@ -66,20 +68,27 @@ class _DashboardPageState extends State<DashboardPage>
     super.dispose();
   }
 
-  //  FIREBASE LOGIC
+  //  FIREBASE LOGIC(menyimpan data hutang/piutang ke firestore)
   Future<void> simpanHutang(HutangModel data) async {
     DocumentReference docRef = await FirebaseFirestore.instance
+        // Menambahkan data baru ke collection "hutang"
         .collection('hutang')
         .add({
           'nama': data.nama,
           'jumlah': data.jumlah,
           'jenis': data.jenis,
           'tanggal': DateTime.now(),
+
+          // fitur cicilan
+          'dibayar': 0,
+          'sisa': data.jumlah,
+          'status': 'Belum Lunas',
         });
+
     print("ID data: ${docRef.id}");
   }
-  //
 
+  //
   String _formatRupiah(int amount) {
     if (amount >= 1000000) {
       return 'Rp ${(amount / 1000000).toStringAsFixed(1)}jt';
@@ -344,24 +353,28 @@ class _DashboardPageState extends State<DashboardPage>
 
                         const SizedBox(height: 28),
 
-                        // ─── SUMMARY CARDS (Firebase stream)
+                        // Mengambil data realtime dari Firebase Firestore
                         StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
                               .collection('hutang')
+                              // snapshots() membuat data otomatis update realtime
                               .snapshots(),
                           builder: (context, snapshot) {
+                            // Variabel untuk menghitung total hutang dan piutang
                             int totalPiutang = 0;
                             int totalHutang = 0;
 
                             if (snapshot.hasData) {
                               for (var doc in snapshot.data!.docs) {
                                 final data = doc.data() as Map<String, dynamic>;
+
+                                final sisa =
+                                    (data['sisa'] ?? data['jumlah']) as num;
+
                                 if (data['jenis'] == 'Piutang') {
-                                  totalPiutang += (data['jumlah'] as num)
-                                      .toInt();
+                                  totalPiutang += sisa.toInt();
                                 } else {
-                                  totalHutang += (data['jumlah'] as num)
-                                      .toInt();
+                                  totalHutang += sisa.toInt();
                                 }
                               }
                             }
@@ -514,7 +527,33 @@ class _DashboardPageState extends State<DashboardPage>
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value.toLowerCase();
+                      });
+                    },
 
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search),
+                      hintText: 'Cari transaksi...',
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 16)),
             //
             StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
@@ -584,9 +623,19 @@ class _DashboardPageState extends State<DashboardPage>
 
                 return SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final data =
+                        docs[index].data()
+                            as Map<String, dynamic>; //menambah filter data
+                    final nama = data['nama'].toString().toLowerCase();
+
+                    if (!nama.contains(searchQuery)) {
+                      return const SizedBox();
+                    }
                     final docId = docs[index].id;
                     final isPiutang = data['jenis'] == 'Piutang';
+                    final dibayar = (data['dibayar'] ?? 0) as num;
+                    final sisa = (data['sisa'] ?? data['jumlah']) as num;
+                    final status = data['status'] ?? 'Belum Lunas';
 
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -599,6 +648,10 @@ class _DashboardPageState extends State<DashboardPage>
                         nama: data['nama'],
                         jenis: data['jenis'],
                         jumlah: (data['jumlah'] as num).toInt(),
+                        dibayar: dibayar.toInt(),
+                        sisa: sisa.toInt(),
+                        status: status,
+                        docId: docId,
                         isPiutang: isPiutang,
                         avatarColor: _avatarColor(data['nama']),
                         initials: _initials(data['nama']),
@@ -625,7 +678,7 @@ class _DashboardPageState extends State<DashboardPage>
         ),
       ),
 
-      // ── FAB ─────────────────────────────────────────────────────────────
+      // Tombol untuk menambah data baru
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final hasil = await Navigator.push(
@@ -633,7 +686,7 @@ class _DashboardPageState extends State<DashboardPage>
             MaterialPageRoute(builder: (context) => const AddHutangPage()),
           );
           if (hasil != null) {
-            simpanHutang(hasil); // ← Firebase logic tidak diubah
+            simpanHutang(hasil); //menyimpan input ke firebase
           }
         },
         backgroundColor: const Color(0xFF6C63FF),
@@ -720,6 +773,10 @@ class _TransactionCard extends StatelessWidget {
   final String nama;
   final String jenis;
   final int jumlah;
+  final int dibayar;
+  final int sisa;
+  final String status;
+  final String docId;
   final bool isPiutang;
   final Color avatarColor;
   final String initials;
@@ -731,6 +788,10 @@ class _TransactionCard extends StatelessWidget {
     required this.nama,
     required this.jenis,
     required this.jumlah,
+    required this.dibayar,
+    required this.sisa,
+    required this.status,
+    required this.docId,
     required this.isPiutang,
     required this.avatarColor,
     required this.initials,
@@ -821,13 +882,64 @@ class _TransactionCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
-                        formatRupiah(jumlah),
-                        style: TextStyle(
-                          color: typeColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Total : ${formatRupiah(jumlah)}',
+                            style: TextStyle(
+                              color: typeColor,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          Text(
+                            'Dibayar : ${formatRupiah(dibayar)}',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 12,
+                            ),
+                          ),
+
+                          const SizedBox(height: 2),
+
+                          Text(
+                            'Sisa : ${formatRupiah(sisa)}',
+                            style: TextStyle(
+                              color: Colors.red.shade400,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+
+                          const SizedBox(height: 6),
+
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: status == 'Lunas'
+                                  ? Colors.green.withOpacity(0.1)
+                                  : Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              status,
+                              style: TextStyle(
+                                color: status == 'Lunas'
+                                    ? Colors.green
+                                    : Colors.orange,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -844,6 +956,67 @@ class _TransactionCard extends StatelessWidget {
                   onTap: onEdit,
                 ),
                 const SizedBox(height: 6),
+
+                _ActionButton(
+                  icon: Icons.payments_rounded,
+                  color: Colors.green,
+                  onTap: () {
+                    final bayarController = TextEditingController();
+
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text('Bayar Cicilan'),
+
+                          content: TextField(
+                            controller: bayarController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              hintText: 'Masukkan nominal',
+                            ),
+                          ),
+
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Batal'),
+                            ),
+
+                            ElevatedButton(
+                              onPressed: () async {
+                                int nominal =
+                                    int.tryParse(bayarController.text) ?? 0;
+
+                                int dibayarBaru = dibayar + nominal;
+
+                                int sisaBaru = jumlah - dibayarBaru;
+
+                                String statusBaru = sisaBaru <= 0
+                                    ? 'Lunas'
+                                    : 'Belum Lunas';
+
+                                await FirebaseFirestore.instance
+                                    .collection('hutang')
+                                    .doc(docId)
+                                    .update({
+                                      'dibayar': dibayarBaru,
+                                      'sisa': sisaBaru < 0 ? 0 : sisaBaru,
+                                      'status': statusBaru,
+                                    });
+
+                                Navigator.pop(context);
+                              },
+                              child: const Text('Bayar'),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                ),
                 _ActionButton(
                   icon: Icons.delete_rounded,
                   color: const Color(0xFFFF6584),
