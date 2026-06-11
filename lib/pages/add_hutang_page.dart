@@ -15,6 +15,8 @@ class _AddHutangPageState extends State<AddHutangPage> {
 
   String jenis = 'Piutang';
 
+  DateTime? jatuhTempo;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,6 +74,31 @@ class _AddHutangPageState extends State<AddHutangPage> {
               decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
 
+            const SizedBox(height: 20),
+
+            OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_month),
+              label: Text(
+                jatuhTempo == null
+                    ? 'Pilih Jatuh Tempo'
+                    : '${jatuhTempo!.day}/${jatuhTempo!.month}/${jatuhTempo!.year}',
+              ),
+              onPressed: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime.now(),
+                  firstDate: DateTime.now(),
+                  lastDate: DateTime(2100),
+                );
+
+                if (picked != null) {
+                  setState(() {
+                    jatuhTempo = picked;
+                  });
+                }
+              },
+            ),
+
             const SizedBox(height: 30),
 
             SizedBox(
@@ -86,6 +113,8 @@ class _AddHutangPageState extends State<AddHutangPage> {
                     jumlah: int.parse(jumlahController.text),
 
                     jenis: jenis,
+
+                    jatuhTempo: jatuhTempo,
                   );
 
                   Navigator.pop(context, data);

@@ -60,6 +60,41 @@ class _DashboardPageState extends State<DashboardPage>
       curve: Curves.easeOut,
     );
     _fadeController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      cekJatuhTempo();
+    });
+  }
+
+  Future<void> cekJatuhTempo() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('hutang')
+        .get();
+
+    int jumlahTerlambat = 0;
+
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
+
+      if (data['jatuhTempo'] != null && data['status'] != 'Lunas') {
+        final dueDate = (data['jatuhTempo'] as Timestamp).toDate();
+
+        if (dueDate.isBefore(DateTime.now())) {
+          jumlahTerlambat++;
+        }
+      }
+    }
+
+    if (jumlahTerlambat > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠ Ada $jumlahTerlambat transaksi yang sudah jatuh tempo',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -83,6 +118,8 @@ class _DashboardPageState extends State<DashboardPage>
           'dibayar': 0,
           'sisa': data.jumlah,
           'status': 'Belum Lunas',
+
+          'jatuhTempo': data.jatuhTempo,
         });
 
     print("ID data: ${docRef.id}");
@@ -636,6 +673,7 @@ class _DashboardPageState extends State<DashboardPage>
                     final dibayar = (data['dibayar'] ?? 0) as num;
                     final sisa = (data['sisa'] ?? data['jumlah']) as num;
                     final status = data['status'] ?? 'Belum Lunas';
+                    final jatuhTempo = data['jatuhTempo'];
 
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -651,6 +689,7 @@ class _DashboardPageState extends State<DashboardPage>
                         dibayar: dibayar.toInt(),
                         sisa: sisa.toInt(),
                         status: status,
+                        jatuhTempo: jatuhTempo,
                         docId: docId,
                         isPiutang: isPiutang,
                         avatarColor: _avatarColor(data['nama']),
@@ -776,6 +815,7 @@ class _TransactionCard extends StatelessWidget {
   final int dibayar;
   final int sisa;
   final String status;
+  final dynamic jatuhTempo;
   final String docId;
   final bool isPiutang;
   final Color avatarColor;
@@ -791,6 +831,7 @@ class _TransactionCard extends StatelessWidget {
     required this.dibayar,
     required this.sisa,
     required this.status,
+    required this.jatuhTempo,
     required this.docId,
     required this.isPiutang,
     required this.avatarColor,
@@ -939,6 +980,21 @@ class _TransactionCard extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (jatuhTempo != null) ...[
+                            const SizedBox(height: 6),
+
+                            Text(
+                              'Jatuh Tempo: ${jatuhTempo.toDate().day}/${jatuhTempo.toDate().month}/${jatuhTempo.toDate().year}',
+                              style: TextStyle(
+                                color:
+                                    jatuhTempo.toDate().isBefore(DateTime.now())
+                                    ? Colors.red
+                                    : Colors.grey.shade600,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ],
@@ -1007,11 +1063,84 @@ class _TransactionCard extends StatelessWidget {
                                       'status': statusBaru,
                                     });
 
+                                await FirebaseFirestore.instance
+                                    .collection('hutang')
+                                    .doc(docId)
+                                    .collection('riwayat')
+                                    .add({
+                                      'nominal': nominal,
+                                      'tanggal': DateTime.now(),
+                                    });
+
                                 Navigator.pop(context);
                               },
                               child: const Text('Bayar'),
                             ),
                           ],
+                        );
+                      },
+                    );
+                  },
+                ),
+                //tambah tombol riwayat
+                const SizedBox(height: 6),
+
+                _ActionButton(
+                  icon: Icons.history_rounded,
+                  color: Colors.blue,
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) {
+                        return AlertDialog(
+                          title: const Text('Riwayat Cicilan'),
+
+                          content: SizedBox(
+                            width: 300,
+                            height: 300,
+                            child: StreamBuilder(
+                              stream: FirebaseFirestore.instance
+                                  .collection('hutang')
+                                  .doc(docId)
+                                  .collection('riwayat')
+                                  .orderBy('tanggal', descending: true)
+                                  .snapshots(),
+                              builder: (context, snapshot) {
+                                if (!snapshot.hasData) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+
+                                final docs = snapshot.data!.docs;
+
+                                if (docs.isEmpty) {
+                                  return const Center(
+                                    child: Text('Belum ada riwayat cicilan'),
+                                  );
+                                }
+
+                                return ListView.builder(
+                                  itemCount: docs.length,
+                                  itemBuilder: (context, index) {
+                                    final data = docs[index].data();
+
+                                    return ListTile(
+                                      leading: const Icon(
+                                        Icons.payments,
+                                        color: Colors.green,
+                                      ),
+                                      title: Text(
+                                        formatRupiah(
+                                          (data['nominal'] as num).toInt(),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            ),
+                          ),
                         );
                       },
                     );
