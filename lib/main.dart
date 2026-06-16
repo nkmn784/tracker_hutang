@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'models/hutang_model.dart';
 import 'pages/add_hutang_page.dart';
 import 'dart:math';
+import 'login_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +32,7 @@ class MyApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF0F2F5),
       ),
-      home: const DashboardPage(),
+      home: LoginPage(),
     );
   }
 }
@@ -47,6 +49,15 @@ class _DashboardPageState extends State<DashboardPage>
   String searchQuery = '';
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
+
+  // ─── HELPER: referensi collection hutang milik user yang login ───
+  CollectionReference get _hutangRef {
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('hutang');
+  }
 
   @override
   void initState() {
@@ -67,14 +78,13 @@ class _DashboardPageState extends State<DashboardPage>
   }
 
   Future<void> cekJatuhTempo() async {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('hutang')
-        .get();
+    // ─── DIUPDATE: pakai _hutangRef agar hanya data milik user sendiri ───
+    final snapshot = await _hutangRef.get();
 
     int jumlahTerlambat = 0;
 
     for (var doc in snapshot.docs) {
-      final data = doc.data();
+      final data = doc.data() as Map<String, dynamic>;
 
       if (data['jatuhTempo'] != null && data['status'] != 'Lunas') {
         final dueDate = (data['jatuhTempo'] as Timestamp).toDate();
@@ -105,22 +115,20 @@ class _DashboardPageState extends State<DashboardPage>
 
   //  FIREBASE LOGIC(menyimpan data hutang/piutang ke firestore)
   Future<void> simpanHutang(HutangModel data) async {
-    DocumentReference docRef = await FirebaseFirestore.instance
-        // Menambahkan data baru ke collection "hutang"
-        .collection('hutang')
-        .add({
-          'nama': data.nama,
-          'jumlah': data.jumlah,
-          'jenis': data.jenis,
-          'tanggal': DateTime.now(),
+    // ─── DIUPDATE: pakai _hutangRef, uid tidak perlu disimpan lagi ───
+    DocumentReference docRef = await _hutangRef.add({
+      'nama': data.nama,
+      'jumlah': data.jumlah,
+      'jenis': data.jenis,
+      'tanggal': DateTime.now(),
 
-          // fitur cicilan
-          'dibayar': 0,
-          'sisa': data.jumlah,
-          'status': 'Belum Lunas',
+      // fitur cicilan
+      'dibayar': 0,
+      'sisa': data.jumlah,
+      'status': 'Belum Lunas',
 
-          'jatuhTempo': data.jatuhTempo,
-        });
+      'jatuhTempo': data.jatuhTempo,
+    });
 
     print("ID data: ${docRef.id}");
   }
@@ -248,15 +256,11 @@ class _DashboardPageState extends State<DashboardPage>
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () async {
-                        // ─── FIREBASE LOGIC (tidak diubah) ───
-                        await FirebaseFirestore.instance
-                            .collection('hutang')
-                            .doc(docId)
-                            .update({
-                              'nama': namaController.text,
-                              'jumlah': int.parse(jumlahController.text),
-                            });
-                        //
+                        // ─── DIUPDATE: pakai _hutangRef ───
+                        await _hutangRef.doc(docId).update({
+                          'nama': namaController.text,
+                          'jumlah': int.parse(jumlahController.text),
+                        });
                         Navigator.pop(context);
                       },
                       style: ElevatedButton.styleFrom(
@@ -385,17 +389,34 @@ class _DashboardPageState extends State<DashboardPage>
                                 size: 22,
                               ),
                             ),
+                            const SizedBox(width: 8),
+
+                            IconButton(
+                              icon: const Icon(
+                                Icons.logout,
+                                color: Colors.white,
+                              ),
+                              onPressed: () async {
+                                await FirebaseAuth.instance.signOut();
+
+                                Navigator.pushAndRemoveUntil(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => LoginPage(),
+                                  ),
+                                  (route) => false,
+                                );
+                              },
+                            ),
                           ],
                         ),
 
                         const SizedBox(height: 28),
 
+                        // ─── DIUPDATE: pakai _hutangRef ───
                         // Mengambil data realtime dari Firebase Firestore
                         StreamBuilder<QuerySnapshot>(
-                          stream: FirebaseFirestore.instance
-                              .collection('hutang')
-                              // snapshots() membuat data otomatis update realtime
-                              .snapshots(),
+                          stream: _hutangRef.snapshots(),
                           builder: (context, snapshot) {
                             // Variabel untuk menghitung total hutang dan piutang
                             int totalPiutang = 0;
@@ -534,10 +555,9 @@ class _DashboardPageState extends State<DashboardPage>
                         letterSpacing: -0.3,
                       ),
                     ),
+                    // ─── DIUPDATE: pakai _hutangRef ───
                     StreamBuilder<QuerySnapshot>(
-                      stream: FirebaseFirestore.instance
-                          .collection('hutang')
-                          .snapshots(),
+                      stream: _hutangRef.snapshots(),
                       builder: (context, snapshot) {
                         final count = snapshot.data?.docs.length ?? 0;
                         return Container(
@@ -591,11 +611,10 @@ class _DashboardPageState extends State<DashboardPage>
             ),
 
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
-            //
+
+            // ─── DIUPDATE: pakai _hutangRef ───
             StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('hutang')
-                  .snapshots(),
+              stream: _hutangRef.snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const SliverToBoxAdapter(
@@ -695,14 +714,11 @@ class _DashboardPageState extends State<DashboardPage>
                         avatarColor: _avatarColor(data['nama']),
                         initials: _initials(data['nama']),
                         formatRupiah: _formatRupiahFull,
+                        hutangRef: _hutangRef, // ─── DIUPDATE ───
                         onEdit: () => _showEditDialog(context, docId, data),
                         onDelete: () async {
-                          // ─── FIREBASE LOGIC (tidak diubah) ───
-                          await FirebaseFirestore.instance
-                              .collection('hutang')
-                              .doc(docId)
-                              .delete();
-                          //
+                          // ─── DIUPDATE: pakai _hutangRef ───
+                          await _hutangRef.doc(docId).delete();
                         },
                       ),
                     );
@@ -821,6 +837,7 @@ class _TransactionCard extends StatelessWidget {
   final Color avatarColor;
   final String initials;
   final String Function(int) formatRupiah;
+  final CollectionReference hutangRef; // ─── DIUPDATE: tambah parameter ───
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -837,6 +854,7 @@ class _TransactionCard extends StatelessWidget {
     required this.avatarColor,
     required this.initials,
     required this.formatRupiah,
+    required this.hutangRef, // ─── DIUPDATE: tambah ke constructor ───
     required this.onEdit,
     required this.onDelete,
   });
@@ -1054,17 +1072,14 @@ class _TransactionCard extends StatelessWidget {
                                     ? 'Lunas'
                                     : 'Belum Lunas';
 
-                                await FirebaseFirestore.instance
-                                    .collection('hutang')
-                                    .doc(docId)
-                                    .update({
-                                      'dibayar': dibayarBaru,
-                                      'sisa': sisaBaru < 0 ? 0 : sisaBaru,
-                                      'status': statusBaru,
-                                    });
+                                // ─── DIUPDATE: pakai hutangRef ───
+                                await hutangRef.doc(docId).update({
+                                  'dibayar': dibayarBaru,
+                                  'sisa': sisaBaru < 0 ? 0 : sisaBaru,
+                                  'status': statusBaru,
+                                });
 
-                                await FirebaseFirestore.instance
-                                    .collection('hutang')
+                                await hutangRef
                                     .doc(docId)
                                     .collection('riwayat')
                                     .add({
@@ -1099,8 +1114,8 @@ class _TransactionCard extends StatelessWidget {
                             width: 300,
                             height: 300,
                             child: StreamBuilder(
-                              stream: FirebaseFirestore.instance
-                                  .collection('hutang')
+                              // ─── DIUPDATE: pakai hutangRef ───
+                              stream: hutangRef
                                   .doc(docId)
                                   .collection('riwayat')
                                   .orderBy('tanggal', descending: true)
