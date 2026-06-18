@@ -203,7 +203,7 @@ class _AddHutangPageState extends State<AddHutangPage> {
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: jatuhTempo != null
-                                    ? const Color(0xFF6C63FF)
+                                    ? const Color.fromARGB(255, 105, 97, 255)
                                     : Colors.grey.shade200,
                                 width: jatuhTempo != null ? 1.5 : 1,
                               ),

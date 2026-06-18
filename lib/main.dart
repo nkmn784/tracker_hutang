@@ -32,7 +32,22 @@ class MyApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: const Color(0xFFF0F2F5),
       ),
-      home: LoginPage(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFF6C63FF)),
+              ),
+            );
+          }
+          if (snapshot.hasData) {
+            return const DashboardPage();
+          }
+          return LoginPage();
+        },
+      ),
     );
   }
 }
@@ -302,7 +317,7 @@ class _DashboardPageState extends State<DashboardPage>
         labelText: label,
         prefixIcon: Icon(icon, color: const Color(0xFF6C63FF), size: 20),
         filled: true,
-        fillColor: const Color(0xFFF8F8FF),
+        fillColor: const Color.fromARGB(255, 254, 255, 254),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.grey.shade200),
@@ -1033,7 +1048,7 @@ class _TransactionCard extends StatelessWidget {
 
                 _ActionButton(
                   icon: Icons.payments_rounded,
-                  color: Colors.green,
+                  color: const Color.fromARGB(255, 18, 240, 6),
                   onTap: () {
                     final bayarController = TextEditingController();
 
